@@ -1,0 +1,54 @@
+##############################################
+# Core Python Dependencies
+##############################################
+numpy<2
+scipy>=1.10
+soundfile
+librosa
+
+##############################################
+# Torch CPU (Ubuntu / Python 3.11)
+# GPU 사용 시 아래 줄을 지우고 CUDA 버전 설치
+##############################################
+torch==2.3.1+cpu
+torchaudio==2.3.1+cpu
+# pip install --index-url https://download.pytorch.org/whl/cpu torch==2.3.1 torchaudio==2.3.1
+
+##############################################
+# TTS Libraries
+##############################################
+coqui-tts==0.25.3
+transformers==4.46.2
+chatterbox-tts==0.1.4
+
+# XTTS depends on protobuf<5 in some cases
+protobuf<5
+
+# Korean phoneme utils
+hangul-romanize
+jamo
+
+##############################################
+# Web UI / Streamlit
+##############################################
+streamlit
+streamlit-audiorecorder
+
+##############################################
+# LLM (Gemini API)
+##############################################
+langchain-google-genai
+google-generativeai
+
+##############################################
+# Audio utilities
+##############################################
+pydub
+ffmpeg-python
+torchcodec-0.8.1
+
+##############################################
+# (Optional but recommended)
+##############################################
+tqdm
+requests
