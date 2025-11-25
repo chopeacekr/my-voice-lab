@@ -1,0 +1,5 @@
+File "/home/chopeace/myrepos/my-voice-lab/.venv/lib/python3.11/site-packages/TTS/tts/layers/xtts/tokenizer.py", line 636, in katsu import cutlet
+XTTS v2는 일본어 텍스트를 처리할 때
+히라가나/가타카나 → 로마자/발음 변환용으로 cutlet을 사용합니다.
+uv add cutlet
+

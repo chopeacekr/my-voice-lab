@@ -7,11 +7,14 @@ requires-python = ">=3.11"
 dependencies = [
   "coqui-tts==0.25.3",
   "transformers==4.46.2",
-  "torch",              # uv가 OS/CPU에 맞게 골라줌
+  "torch", # uv가 OS/CPU에 맞게 골라줌
   "torchaudio",
   "torchcodec",
   "streamlit",
   "streamlit-audiorecorder",
   "langchain-google-genai",
   "hangul-romanize",
+  "requests>=2.32.5",
+  "cutlet>=0.5.0",
+  "pypinyin==0.50.0",
 ]
