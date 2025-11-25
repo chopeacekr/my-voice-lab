@@ -1,10 +1,17 @@
 [project]
-name = "xttsv2"
+name = "my-voice-lab"
 version = "0.1.0"
-description = "Add your description here"
+description = "TTS & STT"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
-
-[tool.uv]
-no-build-isolation-package = ['pkuseg']
+dependencies = [
+  "coqui-tts==0.25.3",
+  "transformers==4.46.2",
+  "torch",              # uv가 OS/CPU에 맞게 골라줌
+  "torchaudio",
+  "torchcodec",
+  "streamlit",
+  "streamlit-audiorecorder",
+  "langchain-google-genai",
+  "hangul-romanize",
+]
