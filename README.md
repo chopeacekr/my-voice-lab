@@ -39,8 +39,7 @@ pip freeze > requirements.txt
 uv run streamlit run web.py
 ```
  
-#🗣️ XTTS v2 — 요약
-
+# 🗣️ XTTS v2 — 요약
 ## 1. 데이터 특성
 
 - 12개 언어 기반 멀티스피커 코퍼스
