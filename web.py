@@ -1,4 +1,3 @@
-import os
 import base64
 from tempfile import NamedTemporaryFile
 
@@ -6,23 +5,8 @@ import streamlit as st
 from audiorecorder import audiorecorder
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-import torch
-from TTS.api import TTS  # XTTS v2 (Coqui)
-
-# 🔹 MeloTTS HTTP 클라이언트는 별도 모듈에서 import
-from melotts_client import melotts_tts_http
-
-
-# ================================
-# 기본 설정
-# ================================
-os.environ.setdefault("MECABRC", "/var/lib/mecab/dic/debian/sys.dic")
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print("device:", device)
-
-# 녹음이 전혀 없을 때 사용할 기본 화자 (로컬 파일)
-DEFAULT_SPEAKER_WAV = "my_voice1.wav"
+from api_clients.melotts_client import melotts_tts_http
+from api_clients.xtts_v2_client import xtts_v2_tts_http
 
 
 # ================================
@@ -31,6 +15,8 @@ DEFAULT_SPEAKER_WAV = "my_voice1.wav"
 SUPPORTED_LANGUAGES = {
     "Korean":  {"code": "ko", "llm": "Korean", "melo": "KR"},
     "English": {"code": "en", "llm": "English", "melo": "EN"},
+    # XTTS에서 일본어는 tokenizer 문제 때문에 일단 lang="en"으로 우회,
+    # MeloTTS는 melo="JP"로 정상 일본어 사용
     "Japanese": {"code": "en", "llm": "Japanese", "melo": "JP"},
     "French": {"code": "fr", "llm": "French", "melo": "FR"},
     "German": {"code": "de", "llm": "German", "melo": None},
@@ -53,15 +39,13 @@ def language_names():
 # TTS 모델 레지스트리
 # ================================
 MODEL_REGISTRY = {
-    "xtts_v2": {
-        "label": "XTTS v2 (Coqui)",
-        "model_id": "tts_models/multilingual/multi-dataset/xtts_v2",
-        "type": "xtts_v2",
-    },
     "melotts": {
         "label": "MeloTTS (Fast & Multilingual, via HTTP)",
-        "model_id": None,
         "type": "melotts",
+    },
+    "xtts_v2": {
+        "label": "XTTS v2 (Coqui, Voice Cloning via HTTP)",
+        "type": "xtts_v2",
     },
 }
 
@@ -80,48 +64,25 @@ def get_model_key_from_label(label: str) -> str:
 # ================================
 # 세션 상태 초기화
 # ================================
+DEFAULT_SPEAKER_WAV = "my_voice1.wav"
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "speaker_path" not in st.session_state:
     st.session_state.speaker_path = DEFAULT_SPEAKER_WAV
 
-# 기본 TTS 모델 선택
+# 👉 기본 TTS는 MeloTTS
 if "tts_model_key" not in st.session_state:
-    st.session_state.tts_model_key = "xtts_v2"  # xtts_v2 | melotts
+    st.session_state.tts_model_key = "melotts"
 
-# 마지막 메시지 자동 재생 여부 (index)
+# 마지막 assistant 메시지 중 autoplay 대상 index
 if "autoplay_index" not in st.session_state:
     st.session_state.autoplay_index = None
 
 
 # ================================
-# XTTS 모델 로드 (페이지 라이프사이클 동안 1번만)
-# ================================
-original_torch_load = torch.load
-
-
-def patched_torch_load(f, map_location=None, **kwargs):
-    if map_location is None:
-        map_location = "cpu"
-    return original_torch_load(f, map_location=map_location, **kwargs)
-
-
-@st.cache_resource
-def get_xtts_model():
-    """페이지 로딩 후, 처음 호출될 때 딱 한 번 로드"""
-    cfg = MODEL_REGISTRY["xtts_v2"]
-    torch.load = patched_torch_load
-    try:
-        model = TTS(cfg["model_id"]).to(device)
-        print(f"Loaded XTTS model once: {cfg['model_id']}")
-    finally:
-        torch.load = original_torch_load
-    return model
-
-
-# ================================
-# 오디오 HTML embed 유틸 (XTTS용)
+# (예비) 로컬 파일용 embed 유틸
 # ================================
 def embed_audio(file_path: str) -> str:
     with open(file_path, "rb") as f:
@@ -140,19 +101,17 @@ def embed_audio(file_path: str) -> str:
 # ================================
 def tts_inference(
     model_key: str,
-    text: str,
+    text: str | None,
     speaker_path: str | None,
-    tts_model,
     lang_code: str,
-    melo_lang_code: str = None,
+    melo_lang_code: str | None = None,
 ) -> str:
     """
-    model_key: "xtts_v2", "melotts" 등
-    text: 생성할 텍스트
-    speaker_path: 화자 reference 파일 (XTTS v2용, MeloTTS는 무시)
-    tts_model: XTTS 모델 (melotts일 때는 None)
+    model_key: "melotts" | "xtts_v2"
+    text: 생성할 텍스트 (None 또는 공백이면 바로 스킵)
+    speaker_path: XTTS에서 사용할 speaker reference wav 경로 (선택)
     lang_code: XTTS 언어 코드 ("ko", "en", ...)
-    melo_lang_code: MeloTTS 언어 코드 ("KR", "EN", ...)
+    melo_lang_code: MeloTTS 언어 코드 ("KR", "EN", ...), 없으면 사용 불가
     """
     if text is None:
         return ""
@@ -163,49 +122,28 @@ def tts_inference(
     cfg = MODEL_REGISTRY[model_key]
     model_type = cfg["type"]
 
-    # ---------- XTTS v2 ----------
-    if model_type == "xtts_v2":
-        if tts_model is None:
-            print("⚠ XTTS model is not loaded, skipping TTS")
-            return ""
-
-        use_speaker = False
-        if speaker_path and os.path.exists(speaker_path) and os.path.getsize(speaker_path) > 0:
-            use_speaker = True
-        else:
-            print(f"⚠ speaker_wav 사용 안 함 (speaker_path={speaker_path})")
-
-        out_path = "clone_output_xtts.wav"
-        if use_speaker:
-            print(f"👉 XTTS: speaker_wav 사용: {speaker_path}")
-            tts_model.tts_to_file(
-                text=text,
-                file_path=out_path,
-                speaker_wav=speaker_path,
-                language=lang_code,
-            )
-        else:
-            print("👉 XTTS: 기본 화자 사용 (no speaker_wav)")
-            tts_model.tts_to_file(
-                text=text,
-                file_path=out_path,
-                language=lang_code,
-            )
-        return embed_audio(out_path)
-
     # ---------- MeloTTS (HTTP) ----------
-    elif model_type == "melotts":
+    if model_type == "melotts":
         if not melo_lang_code:
             print("⚠ MeloTTS: melo_lang_code is None, skipping TTS")
             return ""
-
         print(f"👉 MeloTTS via HTTP: language={melo_lang_code}")
-        speed = 1.0
         return melotts_tts_http(
             text=text,
             melo_lang_code=melo_lang_code,
-            speed=speed,
+            speed=1.0,
             speaker=None,
+        )
+
+    # ---------- XTTS v2 (HTTP) ----------
+    if model_type == "xtts_v2":
+        print(f"👉 XTTS v2 via HTTP: language={lang_code}")
+        # speaker_path는 사용자가 녹음한 wav (없으면 기본 화자 사용)
+        return xtts_v2_tts_http(
+            text=text,
+            lang_code=lang_code,
+            speaker_wav_path=speaker_path,
+            speed=1.0,
         )
 
     print(f"⚠ Unsupported model type for inference: {model_type}")
@@ -222,6 +160,7 @@ def clear_history():
 def rewind():
     if st.session_state.messages:
         msg = st.session_state.messages.pop()
+        # 마지막 assistant까지 같이 제거
         while st.session_state.messages and msg.get("role", "") != "user":
             msg = st.session_state.messages.pop()
 
@@ -229,13 +168,14 @@ def rewind():
 # ================================
 # Streamlit UI 시작
 # ================================
-st.title("Peace Chatbot System (Gemini + Multi-TTS)")
+st.title("Peace Chatbot System (Gemini + MeloTTS / XTTS v2)")
 
 with st.sidebar:
     st.header("TTS Model")
 
     model_keys = list(MODEL_REGISTRY.keys())
     model_label_list = [MODEL_REGISTRY[k]["label"] for k in model_keys]
+
     try:
         default_index = model_keys.index(st.session_state.tts_model_key)
     except ValueError:
@@ -256,13 +196,12 @@ with st.sidebar:
     lang_for_llm = lang_info["llm"]
     melo_lang_code = lang_info.get("melo")
 
+    # MeloTTS 선택 시 지원하지 않는 언어 경고
     if model_key == "melotts" and not melo_lang_code:
         st.warning(
             f"⚠️ MeloTTS does not support {lang_display}. "
             "Please select another language or use XTTS v2."
         )
-
-    TTS_MODEL = get_xtts_model() if model_key == "xtts_v2" else None
 
     st.header("Control")
     gemini_api_key = st.text_input(
@@ -271,12 +210,12 @@ with st.sidebar:
         type="password",
     )
 
-    # 🔹 LLM 요약 글자 수 설정
+    # 🔹 LLM 요약 최대 글자 수 설정
     llm_max_chars = st.number_input(
         "LLM 요약 최대 글자 수",
         min_value=50,
         max_value=1000,
-        value=100,
+        value=300,
         step=50,
     )
 
@@ -289,14 +228,14 @@ with st.sidebar:
 
     st.markdown("---")
     if model_key == "xtts_v2":
-        st.write("현재 사용 중인 화자 레퍼런스:")
+        st.write("현재 사용 중인 화자 레퍼런스 (XTTS v2 용):")
         st.code(st.session_state.speaker_path or "기본 화자 (my_voice1.wav)", language="bash")
     else:
-        st.info("MeloTTS(HTTP)는 화자 레퍼런스를 사용하지 않습니다.")
+        st.info("MeloTTS(HTTP)는 화자 레퍼런스를 사용하지 않습니다. (녹음은 XTTS용 기준)")
 
 
 # ================================
-# 녹음 UI (항상 표시)
+# 녹음 UI (항상 표시: XTTS speaker reference 용)
 # ================================
 st.subheader("Record your voice sample (for XTTS speaker reference)")
 
@@ -317,7 +256,7 @@ st.caption(
 
 
 # ================================
-# 히스토리 표시 (autoplay는 마지막 assistant 메시지 한 번만)
+# 히스토리 표시 (autoplay는 마지막 assistant 메시지 중 '딱 한 번만')
 # ================================
 autoplay_index = st.session_state.autoplay_index
 
@@ -332,6 +271,7 @@ for i, msg in enumerate(st.session_state.messages):
                 content = "\n\n".join([content, embed])
         st.markdown(content, unsafe_allow_html=True)
 
+# 렌더 후에는 autoplay 플래그 초기화
 st.session_state.autoplay_index = None
 
 
@@ -348,7 +288,10 @@ if prompt := st.chat_input("Your message"):
         with st.spinner("Generating response..."):
             if not gemini_api_key:
                 st.error("GEMINI API Key를 먼저 입력해주세요.")
+                llm_response = ""
+                tts_embed = ""
             else:
+                # MeloTTS 선택 시 지원하지 않는 언어 체크
                 if model_key == "melotts" and not melo_lang_code:
                     st.error(
                         f"MeloTTS does not support {lang_display}. "
@@ -379,26 +322,32 @@ if prompt := st.chat_input("Your message"):
                         print("llm result: ", llm_response)
                         current_speaker = st.session_state.speaker_path
 
-                        tts_embed = tts_inference(
-                            model_key=st.session_state.tts_model_key,
-                            text=llm_response,
-                            speaker_path=current_speaker,
-                            tts_model=TTS_MODEL,
-                            lang_code=lang_code,
-                            melo_lang_code=melo_lang_code,
-                        )
+                        try:
+                            tts_embed = tts_inference(
+                                model_key=st.session_state.tts_model_key,
+                                text=llm_response,
+                                speaker_path=current_speaker,
+                                lang_code=lang_code,
+                                melo_lang_code=melo_lang_code,
+                            )
+                        except Exception as e:
+                            st.error(f"⚠️ TTS 생성 실패: {e}")
+                            st.info("💡 첫 요청은 모델 로딩으로 시간이 오래 걸릴 수 있습니다. 다시 시도해보세요.")
+                            tts_embed = ""
 
                         if tts_embed:
                             st.markdown(tts_embed, unsafe_allow_html=True)
 
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": llm_response,
-                        "tts_embed": tts_embed if voice_embed else "",
-                    }
-                )
+            # assistant 메시지 push
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": llm_response,
+                    "tts_embed": tts_embed if voice_embed else "",
+                }
+            )
 
-                st.session_state.autoplay_index = len(st.session_state.messages) - 1
+            # 👉 방금 추가한 assistant 메시지만 autoplay 대상으로 지정
+            st.session_state.autoplay_index = len(st.session_state.messages) - 1
 
     st.rerun()

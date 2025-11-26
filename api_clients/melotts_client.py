@@ -49,7 +49,7 @@ def melotts_tts_http(
     }
 
     try:
-        resp = requests.post(url, json=payload, timeout=60)
+        resp = requests.post(url, json=payload, timeout=180)
         resp.raise_for_status()
     except Exception as e:
         # web.py에서 바로 표시하기 쉽게 RuntimeError로 래핑
