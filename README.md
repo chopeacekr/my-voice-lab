@@ -1,5 +1,6 @@
-유반투 24.04.01, 파이션 3.12 셋팅
 
+<img width="1474" height="738" alt="스크린샷 2025-11-24 235346" src="https://github.com/user-attachments/assets/81b994b5-d669-406a-8b50-134e80e49467" />
+유반투 24.04.01, 파이션 3.12 셋팅
 # 프로젝트 초기화
 ```bash
 uv init xttsv2
