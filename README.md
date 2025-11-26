@@ -1,6 +1,6 @@
-유반투 24.04.01, 파이션 3.12 셋팅
+# 설치방법: 유반투 24.04.01, 파이션 3.12 셋팅
 
-# 프로젝트 초기화
+## 프로젝트 초기화
 ```bash
 uv init xttsv2
 cd xttsv2
@@ -38,10 +38,8 @@ pip freeze > requirements.txt
 ```bash
 uv run streamlit run web.py
 ```
-
-
-
-🗣️ XTTS v2 — 요약
+ 
+#🗣️ XTTS v2 — 요약
 
 ## 1. 데이터 특성
 
