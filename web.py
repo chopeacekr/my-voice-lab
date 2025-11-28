@@ -224,31 +224,54 @@ def stt_inference(
     vosk_lang_code: Vosk 언어 코드 ("KR", "EN", ...)
     whisper_lang_code: Whisper 언어 코드 ("KR", "EN", ...)
     """
+    print(f"\n🔊 [DEBUG] stt_inference 호출")
+    print(f"   - model_key: {model_key}")
+    print(f"   - audio_bytes 크기: {len(audio_bytes)} bytes")
+    print(f"   - vosk_lang_code: {vosk_lang_code}")
+    print(f"   - whisper_lang_code: {whisper_lang_code}")
+    
     cfg = STT_MODEL_REGISTRY[model_key]
     model_type = cfg["type"]
+    print(f"   - model_type: {model_type}")
 
     # ---------- Vosk (HTTP) ----------
     if model_type == "vosk":
         if not vosk_lang_code:
+            print(f"❌ [DEBUG] Vosk 언어 코드 없음!")
             raise ValueError("Vosk requires vosk_lang_code")
-        print(f"👉 Vosk STT via HTTP: language={vosk_lang_code}")
-        return vosk_stt_http(
-            audio_bytes=audio_bytes,
-            lang=vosk_lang_code,
-            sample_rate=16000,
-        )
+        print(f"👉 [DEBUG] Vosk STT via HTTP: language={vosk_lang_code}")
+        print(f"   - vosk_stt_http 함수 호출 중...")
+        try:
+            result = vosk_stt_http(
+                audio_bytes=audio_bytes,
+                lang=vosk_lang_code,
+                sample_rate=16000,
+            )
+            print(f"✅ [DEBUG] Vosk 응답 받음: '{result}'")
+            return result
+        except Exception as e:
+            print(f"❌ [DEBUG] Vosk 호출 실패: {e}")
+            raise
 
     # ---------- Whisper (HTTP) ----------
     if model_type == "whisper":
         if not whisper_lang_code:
             whisper_lang_code = "KR"  # 기본값
-        print(f"👉 Whisper STT via HTTP: language={whisper_lang_code}")
-        return whisper_stt_http(
-            audio_bytes=audio_bytes,
-            lang=whisper_lang_code,
-            sample_rate=16000,
-        )
+        print(f"👉 [DEBUG] Whisper STT via HTTP: language={whisper_lang_code}")
+        print(f"   - whisper_stt_http 함수 호출 중...")
+        try:
+            result = whisper_stt_http(
+                audio_bytes=audio_bytes,
+                lang=whisper_lang_code,
+                sample_rate=16000,
+            )
+            print(f"✅ [DEBUG] Whisper 응답 받음: '{result}'")
+            return result
+        except Exception as e:
+            print(f"❌ [DEBUG] Whisper 호출 실패: {e}")
+            raise
 
+    print(f"❌ [DEBUG] 지원하지 않는 모델 타입: {model_type}")
     raise ValueError(f"Unsupported STT model type: {model_type}")
 
 # ================================
@@ -308,7 +331,13 @@ with st.sidebar:
         index=stt_default_index,
     )
     stt_model_key = get_stt_model_key_from_label(stt_model_label)
+    
+    # 모델 변경 감지
+    if st.session_state.stt_model_key != stt_model_key:
+        print(f"\n🔄 [DEBUG] STT 모델 변경: {st.session_state.stt_model_key} → {stt_model_key}")
+    
     st.session_state.stt_model_key = stt_model_key
+    print(f"📌 [DEBUG] 현재 선택된 STT 모델: {stt_model_key}")
 
     # 서버 상태 확인
     if stt_model_key == "vosk":
@@ -347,6 +376,12 @@ with st.sidebar:
     melo_lang_code = lang_info.get("melo")
     vosk_lang_code = lang_info.get("vosk")
     whisper_lang_code = lang_info.get("whisper")
+    
+    print(f"\n🌍 [DEBUG] 언어 설정")
+    print(f"   - 선택된 언어: {lang_display}")
+    print(f"   - vosk_lang_code: {vosk_lang_code}")
+    print(f"   - whisper_lang_code: {whisper_lang_code}")
+    print(f"   - 현재 STT 모델: {stt_model_key}")
 
     # 언어 지원 경고
     if tts_model_key == "melotts" and not melo_lang_code:
@@ -512,15 +547,20 @@ if audio_stt and len(audio_stt) > 0 and not st.session_state.stt_processed:
                 st.session_state.recorder_key_counter += 1
                 print(f"🔄 [DEBUG] recorder_key_counter: {old_counter} → {st.session_state.recorder_key_counter}")
                 
+                # ⚠️ 중요: rerun 직전에 플래그 즉시 초기화 (다음 녹음 가능하도록)
+                print(f"🔓 [DEBUG] stt_processed 즉시 False로 초기화 (다음 녹음 준비)")
+                st.session_state.stt_processed = False
+                
                 print("🔄 [DEBUG] st.rerun() 호출...")
                 st.rerun()
             else:
                 print(f"⚠️  [DEBUG] 텍스트가 비어있음!")
                 st.warning("⚠️ 음성이 인식되지 않았습니다. 다시 시도해주세요.")
-                # 실패해도 플래그 설정하여 재시도 방지
-                st.session_state.stt_processed = True
                 # recorder 초기화
                 st.session_state.recorder_key_counter += 1
+                # ⚠️ 중요: 실패해도 플래그 초기화 (다음 시도 가능하도록)
+                st.session_state.stt_processed = False
+                print(f"🔓 [DEBUG] stt_processed = False (재시도 가능)")
                 print("="*80 + "\n")
                 
         except Exception as e:
@@ -532,10 +572,11 @@ if audio_stt and len(audio_stt) > 0 and not st.session_state.stt_processed:
             st.error(f"❌ STT 처리 실패: {e}")
             st.info(f"💡 {st.session_state.stt_model_key.capitalize()} 서버가 실행 중인지 확인하세요.")
             st.code(traceback.format_exc())
-            # 에러 발생해도 플래그 설정
-            st.session_state.stt_processed = True
             # recorder 초기화
             st.session_state.recorder_key_counter += 1
+            # ⚠️ 중요: 에러 발생해도 플래그 초기화 (재시도 가능하도록)
+            st.session_state.stt_processed = False
+            print(f"🔓 [DEBUG] stt_processed = False (에러 후 재시도 가능)")
 else:
     # 조건을 만족하지 않는 이유 디버깅
     if audio_stt and len(audio_stt) > 0:
@@ -589,9 +630,16 @@ if send_clicked and st.session_state.prompt_text and st.session_state.prompt_tex
                 llm_response = ""
                 tts_embed = ""
             else:
-                print(f"✅ [DEBUG] API 키 확인됨")
+                print(f"✅ [DEBUG] API 키 확인됨 (길이: {len(gemini_api_key)}, 시작: {gemini_api_key[:10]}...)")
+                
+                # API 키 형식 검증
+                if not gemini_api_key.startswith("AIza"):
+                    print(f"⚠️  [DEBUG] API 키 형식이 이상함 - Gemini API 키는 'AIza'로 시작해야 함")
+                    st.error("⚠️ Gemini API 키 형식이 올바르지 않습니다. 'AIza'로 시작하는 키를 입력해주세요.")
+                    llm_response = ""
+                    tts_embed = ""
                 # TTS 언어 지원 체크
-                if tts_model_key == "melotts" and not melo_lang_code:
+                elif tts_model_key == "melotts" and not melo_lang_code:
                     print(f"❌ [DEBUG] MeloTTS 언어 미지원: {lang_display}")
                     st.error(
                         f"MeloTTS does not support {lang_display}. "
@@ -600,13 +648,18 @@ if send_clicked and st.session_state.prompt_text and st.session_state.prompt_tex
                     llm_response = ""
                     tts_embed = ""
                 else:
-                    print(f"📞 [DEBUG] LLM 호출 준비 (model: gemini-pro)")
-                    llm = ChatGoogleGenerativeAI(
-                        model="gemini-pro",  # ✅ v1beta에서 작동하는 안정 모델
-                        temperature=0,
-                        max_tokens=1024,
-                        google_api_key=gemini_api_key,
-                    )
+                    print(f"📞 [DEBUG] LLM 호출 준비 (model: gemini-2.5-flash)")
+                    try:
+                        llm = ChatGoogleGenerativeAI(
+                            model="gemini-2.5-flash",  # ✅ 최신 2.5 flash 모델
+                            temperature=0,
+                            max_tokens=1024,
+                            google_api_key=gemini_api_key,
+                        )
+                        print(f"✅ [DEBUG] LLM 객체 생성 완료")
+                    except Exception as e:
+                        print(f"❌ [DEBUG] LLM 객체 생성 실패: {e}")
+                        raise
 
                     print(f"📤 [DEBUG] LLM invoke 시작...")
                     try:
