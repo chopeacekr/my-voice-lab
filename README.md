@@ -29,6 +29,8 @@
 
 **My Voice Lab**은 음성 기반 AI 챗봇을 위한 종합 실험 플랫폼입니다. 다양한 TTS(Text-to-Speech) 및 STT(Speech-to-Text) 모델을 통합하여 실시간 음성 대화 시스템을 구현합니다.
 
+![Home](data/home.png)
+
 ### 🌟 프로젝트 특징
 
 - **🎭 다중 TTS 지원**: MeloTTS (빠름) / XTTS v2 (화자 복제)
