@@ -1,12 +1,66 @@
+# ==========================================
+# My Voice Lab - 최종 버전 pyproject.toml
+# ==========================================
+# 
+# 개인 로컬 사용을 위한 최소 설정
+# 이것만 있어도 완전히 작동합니다!
+#
+
 [project]
 name = "my-voice-lab"
-version = "0.1.0"
-description = "TTS & STT"
-readme = "README.md"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-  "streamlit",
-  "streamlit-audiorecorder",
-  "langchain-google-genai",
-  "requests>=2.32.5",
+    # Web Framework
+    "streamlit>=1.29.0",
+    "streamlit-audiorecorder>=0.0.5",
+    
+    # LLM (Gemini)
+    "langchain-google-genai>=1.0.0",
+    "google-generativeai>=0.3.0",    # ⭐ 추가 필요! (langchain 의존성)
+    
+    # HTTP Client
+    "requests>=2.32.0",
+    
+    # Audio Processing
+    "pydub>=0.25.1",              # 오디오 전처리
+    "soundfile>=0.12.1",          # WAV 파일 처리
+    
+    # STT (Speech-to-Text)
+    "SpeechRecognition>=3.10.0",  # Google Speech Recognition
+    
+    # Utilities
+    "python-dotenv>=1.0.0",       # 환경 변수 관리
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["api_clients"]  # ⭐ hatchling 빌드 에러 방지
+
+# ==========================================
+# 시스템 의존성 (별도 설치 필요)
+# ==========================================
+# 
+# Ubuntu/Debian:
+#   sudo apt-get install -y ffmpeg
+#
+# macOS:
+#   brew install ffmpeg
+#
+# Windows:
+#   https://ffmpeg.org/download.html
+#
+# ==========================================
+# 설치 방법
+# ==========================================
+#
+# UV 사용:
+#   uv sync
+#
+# pip 사용:
+#   pip install -e .
+#
+# ==========================================

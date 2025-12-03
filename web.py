@@ -9,27 +9,32 @@ from pydub import AudioSegment
 
 from api_clients.melotts_client import melotts_tts_http
 from api_clients.xtts_v2_client import xtts_v2_tts_http
+from api_clients.bark_client import bark_tts_http, check_bark_health
+from api_clients.f5_client import f5_tts_http, check_f5_health
 from api_clients.vosk_client import vosk_stt_http, check_vosk_health
 from api_clients.whisper_client import whisper_stt_http, check_whisper_health
+from api_clients.gSR_client import google_sr_stt
+from api_clients.wav2vec2_client import wav2vec2_stt_http, check_wav2vec2_health
 
 
 # ================================
 # 언어 설정
 # ================================
 SUPPORTED_LANGUAGES = {
-    "Korean":  {"code": "ko", "llm": "Korean", "melo": "KR", "vosk": "KR", "whisper": "KR"},
-    "English": {"code": "en", "llm": "English", "melo": "EN", "vosk": "EN", "whisper": "EN"},
-    "Japanese": {"code": "en", "llm": "Japanese", "melo": "JP", "vosk": "JP", "whisper": "JP"},
-    "French": {"code": "fr", "llm": "French", "melo": "FR", "vosk": "FR", "whisper": "FR"},
-    "German": {"code": "de", "llm": "German", "melo": None, "vosk": "DE", "whisper": "DE"},
-    "Spanish": {"code": "es", "llm": "Spanish", "melo": "ES", "vosk": "ES", "whisper": "ES"},
-    "Italian": {"code": "it", "llm": "Italian", "melo": None, "vosk": None, "whisper": None},
-    "Portuguese": {"code": "pt", "llm": "Portuguese", "melo": None, "vosk": None, "whisper": None},
-    "Polish": {"code": "pl", "llm": "Polish", "melo": None, "vosk": None, "whisper": None},
-    "Turkish": {"code": "tr", "llm": "Turkish", "melo": None, "vosk": None, "whisper": None},
-    "Russian": {"code": "ru", "llm": "Russian", "melo": None, "vosk": "RU", "whisper": "RU"},
-    "Dutch": {"code": "nl", "llm": "Dutch", "melo": None, "vosk": None, "whisper": None},
-    "Chinese": {"code": "zh", "llm": "Chinese", "melo": "ZH", "vosk": "ZH", "whisper": "ZH"},
+    "Korean":  {"code": "ko", "llm": "Korean", "melo": "KR", "vosk": "KR", "whisper": "KR", "gsr": "ko-KR", "wav2vec2": "KR", "bark": "KR", "f5": "KR"},
+    "English": {"code": "en", "llm": "English", "melo": "EN", "vosk": "EN", "whisper": "EN", "gsr": "en-US", "wav2vec2": "EN", "bark": "EN", "f5": "EN"},
+    "Japanese": {"code": "ja", "llm": "Japanese", "melo": "JP", "vosk": "JP", "whisper": "JP", "gsr": "ja-JP", "wav2vec2": "JP", "bark": "JP", "f5": "JP"},
+    "French": {"code": "fr", "llm": "French", "melo": "FR", "vosk": "FR", "whisper": "FR", "gsr": "fr-FR", "wav2vec2": "FR", "bark": "FR", "f5": "FR"},
+    "German": {"code": "de", "llm": "German", "melo": None, "vosk": "DE", "whisper": "DE", "gsr": "de-DE", "wav2vec2": "DE", "bark": "DE", "f5": "DE"},
+    "Spanish": {"code": "es", "llm": "Spanish", "melo": "ES", "vosk": "ES", "whisper": "ES", "gsr": "es-ES", "wav2vec2": "ES", "bark": "ES", "f5": "ES"},
+    "Italian": {"code": "it", "llm": "Italian", "melo": None, "vosk": None, "whisper": None, "gsr": "it-IT", "wav2vec2": None, "bark": "IT", "f5": "IT"},
+    "Portuguese": {"code": "pt", "llm": "Portuguese", "melo": None, "vosk": None, "whisper": None, "gsr": "pt-PT", "wav2vec2": None, "bark": "PT", "f5": "PT"},
+    "Polish": {"code": "pl", "llm": "Polish", "melo": None, "vosk": None, "whisper": None, "gsr": "pl-PL", "wav2vec2": None, "bark": "PL", "f5": None},
+    "Turkish": {"code": "tr", "llm": "Turkish", "melo": None, "vosk": None, "whisper": None, "gsr": "tr-TR", "wav2vec2": None, "bark": "TR", "f5": None},
+    "Russian": {"code": "ru", "llm": "Russian", "melo": None, "vosk": "RU", "whisper": "RU", "gsr": "ru-RU", "wav2vec2": "RU", "bark": "RU", "f5": None},
+    "Dutch": {"code": "nl", "llm": "Dutch", "melo": None, "vosk": None, "whisper": None, "gsr": "nl-NL", "wav2vec2": None, "bark": None, "f5": None},
+    "Chinese": {"code": "zh", "llm": "Chinese", "melo": "ZH", "vosk": "ZH", "whisper": "ZH", "gsr": "zh-CN", "wav2vec2": "ZH", "bark": "ZH", "f5": "ZH"},
+    "Hindi": {"code": "hi", "llm": "Hindi", "melo": None, "vosk": None, "whisper": None, "gsr": "hi-IN", "wav2vec2": None, "bark": "HI", "f5": None},
 }
 
 
@@ -44,10 +49,26 @@ TTS_MODEL_REGISTRY = {
     "melotts": {
         "label": "MeloTTS (Fast & Multilingual)",
         "type": "melotts",
+        "description": "빠른 다국어 음성 합성 (1-2초)",
+        "features": ["빠른 처리", "다국어"],
     },
     "xtts_v2": {
         "label": "XTTS v2 (Voice Cloning)",
         "type": "xtts_v2",
+        "description": "고품질 Voice Cloning (5-10초)",
+        "features": ["Voice Cloning", "고품질"],
+    },
+    "f5_tts": {
+        "label": "F5-TTS (Zero-shot Voice Cloning)",
+        "type": "f5_tts",
+        "description": "최고 품질 Zero-shot Voice Cloning (10-20초)",
+        "features": ["Zero-shot", "최고 품질", "자연스러움"],
+    },
+    "bark": {
+        "label": "Bark (Expressive & Emotional)",
+        "type": "bark",
+        "description": "표현력 높은 감정 음성 합성 (100-200초)",
+        "features": ["감정 표현", "음악/효과음", "100+ 화자"],
     },
 }
 
@@ -59,6 +80,14 @@ STT_MODEL_REGISTRY = {
     "whisper": {
         "label": "Whisper (Accurate STT)",
         "type": "whisper",
+    },
+    "wav2vec2": {
+        "label": "Wav2Vec2 (Korean Optimized)",
+        "type": "wav2vec2",
+    },
+    "google_sr": {
+        "label": "Google SR (Cloud STT)",
+        "type": "google_sr",
     },
     "vosk": {
         "label": "Vosk (Offline STT)",
@@ -92,72 +121,59 @@ if "messages" not in st.session_state:
 if "speaker_path" not in st.session_state:
     st.session_state.speaker_path = DEFAULT_SPEAKER_WAV
 
-# 👉 기본 TTS는 MeloTTS
 if "tts_model_key" not in st.session_state:
     st.session_state.tts_model_key = "melotts"
 
-# 👉 기본 STT는 Whisper (변경)
 if "stt_model_key" not in st.session_state:
     st.session_state.stt_model_key = "whisper"
 
-# 마지막 assistant 메시지 중 autoplay 대상 index
+# Bark 전용 설정
+if "bark_voice_preset" not in st.session_state:
+    st.session_state.bark_voice_preset = None
+
+if "bark_speed" not in st.session_state:
+    st.session_state.bark_speed = 1.0
+
+# F5-TTS 전용 설정
+if "f5_ref_audio_path" not in st.session_state:
+    st.session_state.f5_ref_audio_path = "my_voice1.wav"  # ⭐ 기본 참조 음성
+
+if "f5_ref_text" not in st.session_state:
+    st.session_state.f5_ref_text = ""
+
+if "f5_use_reference" not in st.session_state:
+    st.session_state.f5_use_reference = True  # ⭐ 기본값 True
+
 if "autoplay_index" not in st.session_state:
     st.session_state.autoplay_index = None
 
-# Your message 입력값을 세션으로 관리 (STT 결과를 여기 넣어줄 것)
 if "prompt_text" not in st.session_state:
     st.session_state.prompt_text = ""
 
-# STT 처리 완료 플래그 (무한 루프 방지)
 if "stt_processed" not in st.session_state:
     st.session_state.stt_processed = False
 
-# audiorecorder 초기화를 위한 카운터
 if "recorder_key_counter" not in st.session_state:
     st.session_state.recorder_key_counter = 0
 
 
 # ================================
-# (예비) 로컬 파일용 embed 유틸
-# ================================
-def embed_audio(file_path: str) -> str:
-    with open(file_path, "rb") as f:
-        data = f.read()
-        b64 = base64.b64encode(data).decode()
-
-    html = f"""<audio controls>
-    <source src="data:audio/wav;base64,{b64}" type="audio/wav">
-    Your browser does not support the audio element.
-</audio>"""
-    return html
-
-
-# ================================
-# 오디오 전처리 함수 (NEW)
+# 오디오 전처리
 # ================================
 def preprocess_audio_for_stt(audio_segment: AudioSegment, target_sample_rate: int = 16000) -> bytes:
-    """
-    STT를 위한 오디오 전처리
-    - 스테레오 → 모노 변환
-    - 샘플레이트 변환 (16kHz)
-    - WAV 포맷으로 내보내기
-    """
-    # 스테레오 → 모노
     if audio_segment.channels > 1:
         audio_segment = audio_segment.set_channels(1)
     
-    # 샘플레이트 변환
     if audio_segment.frame_rate != target_sample_rate:
         audio_segment = audio_segment.set_frame_rate(target_sample_rate)
     
-    # WAV 바이트로 변환
     buffer = io.BytesIO()
     audio_segment.export(buffer, format="wav")
     return buffer.getvalue()
 
 
 # ================================
-# 공통 TTS inference
+# TTS inference
 # ================================
 def tts_inference(
     model_key: str,
@@ -165,14 +181,13 @@ def tts_inference(
     speaker_path: str | None,
     lang_code: str,
     melo_lang_code: str | None = None,
+    bark_lang_code: str | None = None,
+    bark_voice_preset: str | None = None,
+    bark_speed: float = 1.0,
+    f5_lang_code: str | None = None,
+    f5_ref_audio_path: str | None = None,
+    f5_ref_text: str | None = None,
 ) -> str:
-    """
-    model_key: "melotts" | "xtts_v2"
-    text: 생성할 텍스트 (None 또는 공백이면 바로 스킵)
-    speaker_path: XTTS에서 사용할 speaker reference wav 경로 (선택)
-    lang_code: XTTS 언어 코드 ("ko", "en", ...)
-    melo_lang_code: MeloTTS 언어 코드 ("KR", "EN", ...), 없으면 사용 불가
-    """
     if text is None:
         return ""
     text = text.strip()
@@ -182,7 +197,7 @@ def tts_inference(
     cfg = TTS_MODEL_REGISTRY[model_key]
     model_type = cfg["type"]
 
-    # ---------- MeloTTS (HTTP) ----------
+    # MeloTTS
     if model_type == "melotts":
         if not melo_lang_code:
             print("⚠ MeloTTS: melo_lang_code is None, skipping TTS")
@@ -195,7 +210,7 @@ def tts_inference(
             speaker=None,
         )
 
-    # ---------- XTTS v2 (HTTP) ----------
+    # XTTS v2
     if model_type == "xtts_v2":
         print(f"👉 XTTS v2 via HTTP: language={lang_code}")
         return xtts_v2_tts_http(
@@ -205,74 +220,94 @@ def tts_inference(
             speed=1.0,
         )
 
+    # F5-TTS
+    if model_type == "f5_tts":
+        if not f5_lang_code:
+            print("⚠ F5-TTS: f5_lang_code is None, using default")
+        
+        # ⭐ F5-TTS는 참조 음성이 필수! None이면 my_voice1.wav 사용
+        if not f5_ref_audio_path:
+            f5_ref_audio_path = "my_voice1.wav"
+            print("⚠ F5-TTS: ref_audio is None, using default (my_voice1.wav)")
+        
+        print(f"👉 F5-TTS via HTTP: language={f5_lang_code}, ref_audio={f5_ref_audio_path}, ref_text={f5_ref_text}")
+        return f5_tts_http(
+            text=text,
+            ref_audio_path=f5_ref_audio_path,
+            ref_text=f5_ref_text,
+        )
+
+    # Bark
+    if model_type == "bark":
+        if not bark_lang_code:
+            print("⚠ Bark: bark_lang_code is None, using default")
+        print(f"👉 Bark via HTTP: language={bark_lang_code}, preset={bark_voice_preset}, speed={bark_speed}")
+        return bark_tts_http(
+            text=text,
+            voice_preset=bark_voice_preset,
+            speed=bark_speed,
+        )
+
     print(f"⚠ Unsupported model type for inference: {model_type}")
     return ""
 
 
 # ================================
-# 공통 STT inference (수정)
+# STT inference
 # ================================
 def stt_inference(
     model_key: str,
     audio_bytes: bytes,
     vosk_lang_code: str | None = None,
     whisper_lang_code: str | None = None,
+    gsr_lang_code: str | None = None,
+    wav2vec2_lang_code: str | None = None,
 ) -> str:
-    """
-    model_key: "vosk" | "whisper"
-    audio_bytes: WAV 오디오 데이터 (16kHz, 모노)
-    vosk_lang_code: Vosk 언어 코드 ("KR", "EN", ...)
-    whisper_lang_code: Whisper 언어 코드 ("KR", "EN", ...)
-    """
     print(f"\n🔊 [DEBUG] stt_inference 호출")
     print(f"   - model_key: {model_key}")
     print(f"   - audio_bytes 크기: {len(audio_bytes)} bytes")
-    print(f"   - vosk_lang_code: {vosk_lang_code}")
-    print(f"   - whisper_lang_code: {whisper_lang_code}")
     
     cfg = STT_MODEL_REGISTRY[model_key]
     model_type = cfg["type"]
     print(f"   - model_type: {model_type}")
 
-    # ---------- Vosk (HTTP) ----------
     if model_type == "vosk":
         if not vosk_lang_code:
-            print(f"❌ [DEBUG] Vosk 언어 코드 없음!")
             raise ValueError("Vosk requires vosk_lang_code")
-        print(f"👉 [DEBUG] Vosk STT via HTTP: language={vosk_lang_code}")
-        print(f"   - vosk_stt_http 함수 호출 중...")
-        try:
-            result = vosk_stt_http(
-                audio_bytes=audio_bytes,
-                lang=vosk_lang_code,
-                sample_rate=16000,
-            )
-            print(f"✅ [DEBUG] Vosk 응답 받음: '{result}'")
-            return result
-        except Exception as e:
-            print(f"❌ [DEBUG] Vosk 호출 실패: {e}")
-            raise
+        return vosk_stt_http(
+            audio_bytes=audio_bytes,
+            lang=vosk_lang_code,
+            sample_rate=16000,
+        )
 
-    # ---------- Whisper (HTTP) ----------
     if model_type == "whisper":
         if not whisper_lang_code:
-            whisper_lang_code = "KR"  # 기본값
-        print(f"👉 [DEBUG] Whisper STT via HTTP: language={whisper_lang_code}")
-        print(f"   - whisper_stt_http 함수 호출 중...")
-        try:
-            result = whisper_stt_http(
-                audio_bytes=audio_bytes,
-                lang=whisper_lang_code,
-                sample_rate=16000,
-            )
-            print(f"✅ [DEBUG] Whisper 응답 받음: '{result}'")
-            return result
-        except Exception as e:
-            print(f"❌ [DEBUG] Whisper 호출 실패: {e}")
-            raise
+            whisper_lang_code = "KR"
+        return whisper_stt_http(
+            audio_bytes=audio_bytes,
+            lang=whisper_lang_code,
+            sample_rate=16000,
+        )
 
-    print(f"❌ [DEBUG] 지원하지 않는 모델 타입: {model_type}")
+    if model_type == "google_sr":
+        if not gsr_lang_code:
+            gsr_lang_code = "ko-KR"
+        return google_sr_stt(
+            audio_bytes=audio_bytes,
+            lang_code=gsr_lang_code,
+        )
+
+    if model_type == "wav2vec2":
+        if not wav2vec2_lang_code:
+            wav2vec2_lang_code = "KR"
+        return wav2vec2_stt_http(
+            audio_bytes=audio_bytes,
+            lang=wav2vec2_lang_code,
+            sample_rate=16000,
+        )
+
     raise ValueError(f"Unsupported STT model type: {model_type}")
+
 
 # ================================
 # 채팅 히스토리 유틸
@@ -284,19 +319,18 @@ def clear_history():
 def rewind():
     if st.session_state.messages:
         msg = st.session_state.messages.pop()
-        # 마지막 assistant까지 같이 제거
         while st.session_state.messages and msg.get("role", "") != "user":
             msg = st.session_state.messages.pop()
 
 
 # ================================
-# Streamlit UI 시작
+# Streamlit UI
 # ================================
-st.title("Peace Chatbot System (Gemini + Multi-TTS/STT)")
+st.title("🎙️ Peace Chatbot System (Gemini + Multi-TTS/STT)")
 
 with st.sidebar:
     # ========== TTS 모델 선택 ==========
-    st.header("TTS Model")
+    st.header("🔊 TTS Model")
 
     tts_model_keys = list(TTS_MODEL_REGISTRY.keys())
     tts_model_labels = [TTS_MODEL_REGISTRY[k]["label"] for k in tts_model_keys]
@@ -314,8 +348,138 @@ with st.sidebar:
     tts_model_key = get_tts_model_key_from_label(tts_model_label)
     st.session_state.tts_model_key = tts_model_key
 
+    # 모델 설명
+    tts_cfg = TTS_MODEL_REGISTRY[tts_model_key]
+    st.caption(f"📝 {tts_cfg['description']}")
+    st.caption(f"✨ {', '.join(tts_cfg['features'])}")
+
+    # F5-TTS 전용 옵션
+    if tts_model_key == "f5_tts":
+        st.markdown("---")
+        st.subheader("🎤 F5-TTS 옵션")
+        
+        st.info("💡 F5-TTS는 참조 음성이 필수입니다. 기본: my_voice1.wav")
+        
+        st.session_state.f5_use_reference = st.checkbox(
+            "참조 음성 사용",
+            value=st.session_state.f5_use_reference,
+            help="F5-TTS는 항상 참조 음성을 사용합니다. 체크 해제 시 기본(my_voice1.wav) 사용"
+        )
+        
+        if st.session_state.f5_use_reference:
+            st.caption("📂 현재 참조 음성")
+            if st.session_state.f5_ref_audio_path:
+                ref_name = st.session_state.f5_ref_audio_path.split("/")[-1]
+                if ref_name == "my_voice1.wav":
+                    st.info(f"✅ 기본: {ref_name}")
+                else:
+                    st.success(f"✅ 커스텀: {ref_name}")
+            else:
+                st.warning("⚠️ 참조 없음 → my_voice1.wav 사용")
+                st.session_state.f5_ref_audio_path = "my_voice1.wav"
+            
+            st.session_state.f5_ref_text = st.text_area(
+                "참조 음성의 텍스트 (선택)",
+                value=st.session_state.f5_ref_text,
+                height=80,
+                help="참조 음성이 말한 내용 (선택사항)",
+                placeholder="예: 안녕하세요, 반갑습니다."
+            )
+            
+            if st.button("🔄 기본 참조로 초기화", use_container_width=True):
+                st.session_state.f5_ref_audio_path = "my_voice1.wav"
+                st.session_state.f5_ref_text = ""
+                st.success("✅ my_voice1.wav로 초기화!")
+                st.rerun()
+        else:
+            st.info("💡 기본 참조(my_voice1.wav) 사용")
+            st.session_state.f5_ref_audio_path = "my_voice1.wav"
+        
+        try:
+            health = check_f5_health()
+            if health.get("status") == "ok":
+                st.success("✅ F5-TTS Server Connected (Port 8500)")
+                model = health.get("model")
+                device = health.get("device")
+                if model and device:
+                    st.caption(f"🎤 {model} • {device}")
+            else:
+                st.error("❌ F5-TTS Server Error")
+        except:
+            st.error("❌ F5-TTS Server Offline")
+            st.info("💡 my_f5 디렉토리에서 서버를 시작하세요:\n`python server_tts.py`")
+
+    # Bark 전용 옵션
+    elif tts_model_key == "bark":
+        st.markdown("---")
+        st.subheader("🐶 Bark 옵션")
+        
+        st.warning("⚠️ Bark는 처리 시간이 매우 깁니다 (100-200초). 첫 요청은 더 오래 걸릴 수 있습니다.")
+        
+        voice_preset_options = {
+            "기본 (자동)": None,
+            "영어-남성1": "v2/en_speaker_0",
+            "영어-여성1": "v2/en_speaker_1",
+            "영어-남성2": "v2/en_speaker_2",
+            "한국어-남성1": "v2/ko_speaker_0",
+            "한국어-여성1": "v2/ko_speaker_1",
+            "한국어-남성2": "v2/ko_speaker_2",
+            "중국어-남성1": "v2/zh_speaker_0",
+            "중국어-여성1": "v2/zh_speaker_1",
+        }
+        
+        voice_preset_display = st.selectbox(
+            "화자 프리셋",
+            options=list(voice_preset_options.keys()),
+            help="100개 이상의 화자 중 일부. 언어에 맞는 화자를 선택하세요."
+        )
+        st.session_state.bark_voice_preset = voice_preset_options[voice_preset_display]
+        
+        st.session_state.bark_speed = st.slider(
+            "음성 속도",
+            min_value=0.5,
+            max_value=2.0,
+            value=1.0,
+            step=0.1,
+            help="0.5x (느림) ~ 2.0x (빠름)"
+        )
+        
+        with st.expander("📝 특수 토큰 사용법"):
+            st.markdown("""
+            **감정 표현:**
+            - `[laughs]` - 웃음 😄
+            - `[sighs]` - 한숨 😔
+            - `[cries]` - 울음 😢
+            - `[gasps]` - 헐떡임 😲
+            
+            **효과음:**
+            - `[music]` - 음악/노래 🎵
+            - `[applause]` - 박수 👏
+            
+            **사용 예시:**
+            - "정말 기쁩니다! [laughs]"
+            - "오늘은 힘드네요... [sighs]"
+            - "생일 축하합니다! ♪ [music]"
+            """)
+        
+        try:
+            health = check_bark_health()
+            if health.get("status") == "ok":
+                st.success("✅ Bark Server Connected (Port 8600)")
+                model_loaded = health.get("model_loaded")
+                device = health.get("device")
+                sample_rate = health.get("sample_rate")
+                if model_loaded and device:
+                    st.caption(f"🎤 {device} • {sample_rate}Hz")
+            else:
+                st.error("❌ Bark Server Error")
+        except:
+            st.error("❌ Bark Server Offline")
+            st.info("💡 my_bark 디렉토리에서 서버를 시작하세요:\n`uv run python server_tts.py`")
+
     # ========== STT 모델 선택 ==========
-    st.header("STT Model")
+    st.markdown("---")
+    st.header("🎤 STT Model")
 
     stt_model_keys = list(STT_MODEL_REGISTRY.keys())
     stt_model_labels = [STT_MODEL_REGISTRY[k]["label"] for k in stt_model_keys]
@@ -332,14 +496,12 @@ with st.sidebar:
     )
     stt_model_key = get_stt_model_key_from_label(stt_model_label)
     
-    # 모델 변경 감지
     if st.session_state.stt_model_key != stt_model_key:
         print(f"\n🔄 [DEBUG] STT 모델 변경: {st.session_state.stt_model_key} → {stt_model_key}")
     
     st.session_state.stt_model_key = stt_model_key
-    print(f"📌 [DEBUG] 현재 선택된 STT 모델: {stt_model_key}")
 
-    # 서버 상태 확인
+    # STT 서버 상태
     if stt_model_key == "vosk":
         try:
             health = check_vosk_health()
@@ -366,9 +528,30 @@ with st.sidebar:
                 st.error("❌ Whisper STT Server Error")
         except:
             st.error("❌ Whisper STT Server Offline")
+    
+    elif stt_model_key == "wav2vec2":
+        try:
+            health = check_wav2vec2_health()
+            if health.get("status") == "ok":
+                st.success("✅ Wav2Vec2 STT Server Connected")
+                model_id = health.get("model_id", "")
+                device = health.get("device", "")
+                if model_id:
+                    st.caption(f"Model: {model_id.split('/')[-1]}")
+                if device:
+                    st.caption(f"Device: {device}")
+            else:
+                st.error("❌ Wav2Vec2 STT Server Error")
+        except:
+            st.error("❌ Wav2Vec2 STT Server Offline (Port 8400)")
+    
+    elif stt_model_key == "google_sr":
+        st.success("✅ Google SR (Local Processing)")
+        st.caption("No server required • Internet connection needed")
 
     # ========== 언어 선택 ==========
-    st.header("Language")
+    st.markdown("---")
+    st.header("🌍 Language")
     lang_display = st.selectbox("Language", language_names())
     lang_info = SUPPORTED_LANGUAGES[lang_display]
     lang_code = lang_info["code"]
@@ -376,34 +559,42 @@ with st.sidebar:
     melo_lang_code = lang_info.get("melo")
     vosk_lang_code = lang_info.get("vosk")
     whisper_lang_code = lang_info.get("whisper")
-    
-    print(f"\n🌍 [DEBUG] 언어 설정")
-    print(f"   - 선택된 언어: {lang_display}")
-    print(f"   - vosk_lang_code: {vosk_lang_code}")
-    print(f"   - whisper_lang_code: {whisper_lang_code}")
-    print(f"   - 현재 STT 모델: {stt_model_key}")
+    gsr_lang_code = lang_info.get("gsr")
+    wav2vec2_lang_code = lang_info.get("wav2vec2")
+    bark_lang_code = lang_info.get("bark")
+    f5_lang_code = lang_info.get("f5")
 
     # 언어 지원 경고
     if tts_model_key == "melotts" and not melo_lang_code:
         st.warning(
             f"⚠️ MeloTTS does not support {lang_display}. "
-            "Please select another language or use XTTS v2."
+            "Please select another language or use XTTS v2/F5-TTS/Bark."
+        )
+    
+    if tts_model_key == "f5_tts" and not f5_lang_code:
+        st.warning(
+            f"⚠️ F5-TTS does not support {lang_display}. "
+            "Please select another language."
+        )
+    
+    if tts_model_key == "bark" and not bark_lang_code:
+        st.warning(
+            f"⚠️ Bark does not support {lang_display}. "
+            "Please select another language."
         )
 
     if stt_model_key == "vosk" and not vosk_lang_code:
-        st.warning(
-            f"⚠️ Vosk does not support {lang_display} STT. "
-            "Voice input will be disabled."
-        )
+        st.warning(f"⚠️ Vosk does not support {lang_display} STT.")
     
     if stt_model_key == "whisper" and not whisper_lang_code:
-        st.warning(
-            f"⚠️ Whisper does not support {lang_display} STT. "
-            "Voice input will be disabled."
-        )
+        st.warning(f"⚠️ Whisper does not support {lang_display} STT.")
+    
+    if stt_model_key == "wav2vec2" and not wav2vec2_lang_code:
+        st.warning(f"⚠️ Wav2Vec2 does not support {lang_display} STT.")
 
     # ========== 컨트롤 ==========
-    st.header("Control")
+    st.markdown("---")
+    st.header("⚙️ Control")
     gemini_api_key = st.text_input(
         "GEMINI API Key",
         key="chatbot_api_key",
@@ -427,18 +618,22 @@ with st.sidebar:
 
     st.markdown("---")
     if tts_model_key == "xtts_v2":
-        st.write("현재 사용 중인 화자 레퍼런스 (XTTS v2 용):")
+        st.write("**XTTS v2 화자 레퍼런스:**")
         st.code(st.session_state.speaker_path or "기본 화자 (my_voice1.wav)", language="bash")
+    elif tts_model_key == "f5_tts":
+        st.info("🎤 F5-TTS는 참조 음성을 사용합니다. 위에서 설정하세요.")
+    elif tts_model_key == "bark":
+        st.info("🐶 Bark는 화자 프리셋을 사용합니다. 위에서 선택하세요.")
     else:
-        st.info("MeloTTS는 화자 레퍼런스를 사용하지 않습니다.")
+        st.info("ℹ️ MeloTTS는 화자 레퍼런스를 사용하지 않습니다.")
 
 
 # ================================
-# 녹음 UI (XTTS speaker reference 용)
+# 녹음 UI (XTTS/F5-TTS speaker reference)
 # ================================
-st.subheader("🎤 Record your voice sample (for XTTS speaker reference)")
+st.subheader("🎤 Record your voice sample (for XTTS/F5-TTS speaker reference)")
 
-audio = audiorecorder("녹음시작", "녹음정지", key="xtts_recorder")
+audio = audiorecorder("녹음시작", "녹음정지", key="voice_recorder")
 
 if len(audio) > 0:
     st.success("Recording complete!")
@@ -447,15 +642,20 @@ if len(audio) > 0:
         audio.export(tmp_path, format="wav")
         st.write(f"저장된 파일: {tmp_path}")
         st.session_state.speaker_path = tmp_path
+        
+        # F5-TTS 참조 음성으로도 설정
+        if tts_model_key == "f5_tts":
+            st.session_state.f5_ref_audio_path = tmp_path
+            st.info("💡 F5-TTS 참조 음성으로 설정되었습니다.")
 
 st.caption(
-    "※ XTTS v2를 사용할 때 이 음성을 화자 레퍼런스로 사용합니다. "
-    "MeloTTS를 사용할 때는 참고용으로만 저장됩니다."
+    "※ XTTS v2와 F5-TTS를 사용할 때 이 음성을 화자 레퍼런스로 사용합니다. "
+    "MeloTTS와 Bark를 사용할 때는 참고용으로만 저장됩니다."
 )
 
 
 # ================================
-# 히스토리 표시 (autoplay는 마지막 assistant 메시지 중 '딱 한 번만')
+# 히스토리 표시
 # ================================
 autoplay_index = st.session_state.autoplay_index
 
@@ -470,150 +670,166 @@ for i, msg in enumerate(st.session_state.messages):
                 content = "\n\n".join([content, embed])
         st.markdown(content, unsafe_allow_html=True)
 
-# 렌더 후에는 autoplay 플래그 초기화
 st.session_state.autoplay_index = None
 
 
 # ================================
-# 채팅 입력 처리 (텍스트 + 음성)
+# 채팅 입력 처리
 # ================================
 st.subheader("💬 Chat Input")
 
 col1, col2 = st.columns([5, 1])
 
-# ---- 오른쪽: 음성(STT) 녹음 버튼 (수정) ----
+# 음성 녹음
 with col2:
-    # Vosk 또는 Whisper 둘 중 하나라도 언어 지원하면 녹음 버튼 표시
-    if (stt_model_key == "vosk" and vosk_lang_code) or \
-       (stt_model_key == "whisper" and whisper_lang_code):
-        # ✅ 동적 key로 audiorecorder 초기화 가능
+    stt_available = False
+    
+    if stt_model_key == "vosk" and vosk_lang_code:
+        stt_available = True
+    elif stt_model_key == "whisper" and whisper_lang_code:
+        stt_available = True
+    elif stt_model_key == "google_sr" and gsr_lang_code:
+        stt_available = True
+    elif stt_model_key == "wav2vec2" and wav2vec2_lang_code:
+        stt_available = True
+    
+    if stt_available:
         audio_stt = audiorecorder("🎤", "⏹️", key=f"stt_recorder_{st.session_state.recorder_key_counter}")
     else:
         audio_stt = None
         st.caption("STT 미지원")
 
-# ========== 음성 입력 처리 (수정) ==========
+# 음성 입력 처리
 prompt = None
 
-# ✅ 오디오가 있고, 아직 처리하지 않았을 때만 STT 수행
 if audio_stt and len(audio_stt) > 0 and not st.session_state.stt_processed:
-    print("\n" + "="*80)
-    print("🎤 [DEBUG] STT 처리 시작")
-    print(f"   - audio_stt length: {len(audio_stt)}")
-    print(f"   - stt_processed: {st.session_state.stt_processed}")
-    print(f"   - recorder_key_counter: {st.session_state.recorder_key_counter}")
-    print(f"   - current prompt_text: '{st.session_state.prompt_text}'")
-    print("="*80)
-    
     st.info("🎤 음성 입력 감지됨. 텍스트로 변환 중...")
     
     with st.spinner("Converting speech to text..."):
         try:
-            # ✅ 오디오 전처리 (스테레오→모노, 리샘플링)
-            print("📦 [DEBUG] 오디오 전처리 시작...")
             audio_bytes = preprocess_audio_for_stt(audio_stt, target_sample_rate=16000)
-            print(f"✅ [DEBUG] 오디오 전처리 완료: {len(audio_bytes)} bytes")
-            
-            # 디버깅: 오디오 정보 출력
             st.caption(f"📊 Audio preprocessed: {len(audio_bytes)} bytes")
             
-            # STT 처리
-            print(f"🎯 [DEBUG] STT 처리 시작 (model: {st.session_state.stt_model_key})")
             transcribed_text = stt_inference(
                 model_key=st.session_state.stt_model_key,
                 audio_bytes=audio_bytes,
                 vosk_lang_code=vosk_lang_code,
                 whisper_lang_code=whisper_lang_code,
+                gsr_lang_code=gsr_lang_code,
+                wav2vec2_lang_code=wav2vec2_lang_code,
             )
-            print(f"✅ [DEBUG] STT 처리 완료: '{transcribed_text}'")
-            print(f"   - 텍스트 길이: {len(transcribed_text)}")
-            print(f"   - strip 후 길이: {len(transcribed_text.strip())}")
             
             if transcribed_text.strip():
-                print(f"✅ [DEBUG] 텍스트 인식 성공!")
                 st.success(f"✅ 인식된 텍스트: {transcribed_text}")
-                
-                # STT 결과를 텍스트 입력창에 넣기
-                print(f"📝 [DEBUG] prompt_text 업데이트 전: '{st.session_state.prompt_text}'")
                 st.session_state.prompt_text = transcribed_text
-                print(f"📝 [DEBUG] prompt_text 업데이트 후: '{st.session_state.prompt_text}'")
-                
-                # ✅ 처리 완료 플래그 설정
                 st.session_state.stt_processed = True
-                print(f"🚩 [DEBUG] stt_processed = True")
-                
-                # ✅ recorder 초기화 (key 변경으로 새 위젯 생성)
-                old_counter = st.session_state.recorder_key_counter
                 st.session_state.recorder_key_counter += 1
-                print(f"🔄 [DEBUG] recorder_key_counter: {old_counter} → {st.session_state.recorder_key_counter}")
-                
-                # ⚠️ 중요: rerun 직전에 플래그 즉시 초기화 (다음 녹음 가능하도록)
-                print(f"🔓 [DEBUG] stt_processed 즉시 False로 초기화 (다음 녹음 준비)")
                 st.session_state.stt_processed = False
-                
-                print("🔄 [DEBUG] st.rerun() 호출...")
                 st.rerun()
             else:
-                print(f"⚠️  [DEBUG] 텍스트가 비어있음!")
                 st.warning("⚠️ 음성이 인식되지 않았습니다. 다시 시도해주세요.")
-                # recorder 초기화
                 st.session_state.recorder_key_counter += 1
-                # ⚠️ 중요: 실패해도 플래그 초기화 (다음 시도 가능하도록)
                 st.session_state.stt_processed = False
-                print(f"🔓 [DEBUG] stt_processed = False (재시도 가능)")
-                print("="*80 + "\n")
                 
         except Exception as e:
-            print(f"❌ [DEBUG] STT 처리 중 예외 발생: {e}")
-            import traceback
-            traceback.print_exc()
-            print("="*80 + "\n")
-            
             st.error(f"❌ STT 처리 실패: {e}")
-            st.info(f"💡 {st.session_state.stt_model_key.capitalize()} 서버가 실행 중인지 확인하세요.")
-            st.code(traceback.format_exc())
-            # recorder 초기화
+            
+            if stt_model_key == "google_sr":
+                st.info("💡 Google SR: 인터넷 연결 확인")
+            elif stt_model_key == "wav2vec2":
+                st.info("💡 Wav2Vec2: 서버 실행 확인 (포트 8400)")
+            
             st.session_state.recorder_key_counter += 1
-            # ⚠️ 중요: 에러 발생해도 플래그 초기화 (재시도 가능하도록)
             st.session_state.stt_processed = False
-            print(f"🔓 [DEBUG] stt_processed = False (에러 후 재시도 가능)")
-else:
-    # 조건을 만족하지 않는 이유 디버깅
-    if audio_stt and len(audio_stt) > 0:
-        if st.session_state.stt_processed:
-            print(f"⏭️  [DEBUG] STT 스킵: 이미 처리됨 (stt_processed=True)")
-    elif audio_stt:
-        print(f"⏭️  [DEBUG] STT 스킵: 오디오 없음 (len={len(audio_stt)})")
 
-# ---- 왼쪽: 텍스트 입력창 (STT 결과가 여기로 들어감) ----
+# 텍스트 입력
 with col1:
-    print(f"\n📝 [DEBUG] 텍스트 입력창 렌더링")
-    print(f"   - session prompt_text: '{st.session_state.prompt_text}'")
-    
-    # ✅ key를 제거하고 value만 사용
     prompt_text = st.text_area(
         "Your message",
-        value=st.session_state.prompt_text,  # 세션 값 사용
+        value=st.session_state.prompt_text,
         height=80,
-        # key 제거! 이것이 문제였음
     )
     
-    print(f"   - 렌더된 text_area value: '{prompt_text}'")
-    
-    # 입력창 값 변경 시 세션 업데이트
     if prompt_text != st.session_state.prompt_text:
-        print(f"🔄 [DEBUG] 사용자가 텍스트 수정함: '{st.session_state.prompt_text}' → '{prompt_text}'")
         st.session_state.prompt_text = prompt_text
 
-# Send 버튼 (사용자가 직접 눌러야 LLM + TTS 실행)
-send_clicked = st.button("Send", type="primary")
+# Send 버튼과 TTS 전용 버튼
+col_send1, col_send2 = st.columns([1, 1])
+with col_send1:
+    send_clicked = st.button("Send (LLM + TTS)", type="primary", use_container_width=True)
+with col_send2:
+    tts_only_clicked = st.button("🔊 TTS Only", use_container_width=True)
 
-print(f"\n🔘 [DEBUG] Send 버튼 상태: {send_clicked}")
-print(f"   - prompt_text: '{st.session_state.prompt_text}'")
+# TTS Only 버튼 처리 (LLM 없이 TTS만 테스트)
+if tts_only_clicked and st.session_state.prompt_text and st.session_state.prompt_text.strip():
+    test_text = st.session_state.prompt_text.strip()
+    
+    with st.chat_message("assistant"):
+        st.markdown(f"**🔊 TTS 테스트:** {test_text}")
+        
+        # TTS 모델 언어 지원 확인
+        if tts_model_key == "f5_tts" and not f5_lang_code:
+            st.error(f"F5-TTS does not support {lang_display}.")
+            tts_embed = ""
+        elif tts_model_key == "bark" and not bark_lang_code:
+            st.error(f"Bark does not support {lang_display}.")
+            tts_embed = ""
+        elif tts_model_key == "melotts" and not melo_lang_code:
+            st.error(f"MeloTTS does not support {lang_display}.")
+            tts_embed = ""
+        else:
+            # Bark 사용 시 처리 시간 경고
+            if tts_model_key == "bark":
+                with st.spinner("🐶 Bark 음성 생성 중... (100-200초 소요, 첫 실행은 더 오래 걸립니다)"):
+                    try:
+                        tts_embed = tts_inference(
+                            model_key=st.session_state.tts_model_key,
+                            text=test_text,
+                            speaker_path=st.session_state.speaker_path,
+                            lang_code=lang_code,
+                            melo_lang_code=melo_lang_code,
+                            bark_lang_code=bark_lang_code,
+                            bark_voice_preset=st.session_state.bark_voice_preset,
+                            bark_speed=st.session_state.bark_speed,
+                            f5_lang_code=f5_lang_code,
+                            f5_ref_audio_path=st.session_state.f5_ref_audio_path if st.session_state.f5_use_reference else "my_voice1.wav",
+                            f5_ref_text=st.session_state.f5_ref_text if st.session_state.f5_use_reference else None,
+                        )
+                    except Exception as e:
+                        st.error(f"⚠️ TTS 생성 실패: {e}")
+                        st.info("💡 Bark 서버가 실행 중인지 확인하세요 (포트 8600)")
+                        tts_embed = ""
+            else:
+                with st.spinner(f"🎤 {tts_cfg['label']} 음성 생성 중..."):
+                    try:
+                        tts_embed = tts_inference(
+                            model_key=st.session_state.tts_model_key,
+                            text=test_text,
+                            speaker_path=st.session_state.speaker_path,
+                            lang_code=lang_code,
+                            melo_lang_code=melo_lang_code,
+                            bark_lang_code=bark_lang_code,
+                            bark_voice_preset=st.session_state.bark_voice_preset,
+                            bark_speed=st.session_state.bark_speed,
+                            f5_lang_code=f5_lang_code,
+                            f5_ref_audio_path=st.session_state.f5_ref_audio_path if st.session_state.f5_use_reference else "my_voice1.wav",
+                            f5_ref_text=st.session_state.f5_ref_text if st.session_state.f5_use_reference else None,
+                        )
+                    except Exception as e:
+                        st.error(f"⚠️ TTS 생성 실패: {e}")
+                        st.info("💡 서버가 실행 중인지 확인하세요")
+                        tts_embed = ""
+            
+            if tts_embed:
+                st.markdown(tts_embed, unsafe_allow_html=True)
+                st.success("✅ TTS 테스트 완료!")
+    
+    # 입력창 초기화 (선택 사항)
+    # st.session_state.prompt_text = ""
+    # st.rerun()
 
-# ========== 프롬프트가 있으면 처리 (오직 Send 눌렀을 때만) ==========
+# 프롬프트 처리
 if send_clicked and st.session_state.prompt_text and st.session_state.prompt_text.strip():
-    print(f"✅ [DEBUG] Send 조건 만족! LLM 처리 시작...")
     prompt = st.session_state.prompt_text.strip()
 
     with st.chat_message("user"):
@@ -623,96 +839,107 @@ if send_clicked and st.session_state.prompt_text and st.session_state.prompt_tex
 
     with st.chat_message("assistant"):
         with st.spinner("Generating response..."):
-            print("🤖 [DEBUG] assistant 메시지 블록 진입")
             if not gemini_api_key:
-                print("❌ [DEBUG] API 키 없음")
                 st.error("GEMINI API Key를 먼저 입력해주세요.")
                 llm_response = ""
                 tts_embed = ""
             else:
-                print(f"✅ [DEBUG] API 키 확인됨 (길이: {len(gemini_api_key)}, 시작: {gemini_api_key[:10]}...)")
-                
-                # API 키 형식 검증
                 if not gemini_api_key.startswith("AIza"):
-                    print(f"⚠️  [DEBUG] API 키 형식이 이상함 - Gemini API 키는 'AIza'로 시작해야 함")
-                    st.error("⚠️ Gemini API 키 형식이 올바르지 않습니다. 'AIza'로 시작하는 키를 입력해주세요.")
+                    st.error("⚠️ Gemini API 키 형식이 올바르지 않습니다.")
                     llm_response = ""
                     tts_embed = ""
-                # TTS 언어 지원 체크
+                elif tts_model_key == "f5_tts" and not f5_lang_code:
+                    st.error(f"F5-TTS does not support {lang_display}.")
+                    llm_response = ""
+                    tts_embed = ""
+                elif tts_model_key == "bark" and not bark_lang_code:
+                    st.error(f"Bark does not support {lang_display}.")
+                    llm_response = ""
+                    tts_embed = ""
                 elif tts_model_key == "melotts" and not melo_lang_code:
-                    print(f"❌ [DEBUG] MeloTTS 언어 미지원: {lang_display}")
-                    st.error(
-                        f"MeloTTS does not support {lang_display}. "
-                        "Please select another language or model."
-                    )
+                    st.error(f"MeloTTS does not support {lang_display}.")
                     llm_response = ""
                     tts_embed = ""
                 else:
-                    print(f"📞 [DEBUG] LLM 호출 준비 (model: gemini-2.5-flash)")
                     try:
                         llm = ChatGoogleGenerativeAI(
-                            model="gemini-2.5-flash",  # ✅ 최신 2.5 flash 모델
+                            model="gemini-2.5-flash",
                             temperature=0,
                             max_tokens=1024,
                             google_api_key=gemini_api_key,
                         )
-                        print(f"✅ [DEBUG] LLM 객체 생성 완료")
                     except Exception as e:
-                        print(f"❌ [DEBUG] LLM 객체 생성 실패: {e}")
-                        raise
-
-                    print(f"📤 [DEBUG] LLM invoke 시작...")
-                    try:
-                        raw_resp = llm.invoke(
-                            prompt
-                            + f"\nPlease answer in {lang_for_llm}, and keep it short, under {llm_max_chars} characters."
-                        ).content
-                        print(f"✅ [DEBUG] LLM 응답 받음: {len(raw_resp) if raw_resp else 0} chars")
-                    except Exception as e:
-                        print(f"❌ [DEBUG] LLM 호출 실패: {e}")
-                        error_msg = str(e)
-                        if "429" in error_msg or "quota" in error_msg.lower():
-                            st.error("⚠️ Gemini API 할당량 초과")
-                            st.info("💡 잠시 후 다시 시도하거나, API 키를 확인해주세요.")
-                            st.caption("Free tier는 분당 요청 제한이 있습니다. 약 1분 후 다시 시도해주세요.")
-                            raw_resp = None
-                        else:
-                            st.error(f"❌ LLM 요청 실패: {e}")
-                            raw_resp = None
-
-                    llm_response = (raw_resp or "").strip()
-                    print(f"📝 [DEBUG] LLM 응답 정리됨: '{llm_response[:50]}...' ({len(llm_response)} chars)")
-
-                    if not llm_response:
-                        print("⚠️  [DEBUG] LLM 응답 비어있음")
-                        st.warning("LLM 응답이 비어 있어 TTS를 건너뜁니다.")
+                        st.error(f"❌ LLM 초기화 실패: {e}")
+                        llm_response = ""
                         tts_embed = ""
                     else:
-                        st.markdown(llm_response)
-                        print(f"🔊 [DEBUG] TTS 생성 시작 (model: {st.session_state.tts_model_key})")
-                        current_speaker = st.session_state.speaker_path
-
                         try:
-                            tts_embed = tts_inference(
-                                model_key=st.session_state.tts_model_key,
-                                text=llm_response,
-                                speaker_path=current_speaker,
-                                lang_code=lang_code,
-                                melo_lang_code=melo_lang_code,
-                            )
-                            print(f"✅ [DEBUG] TTS 생성 완료")
+                            raw_resp = llm.invoke(
+                                prompt
+                                + f"\nPlease answer in {lang_for_llm}, and keep it short, under {llm_max_chars} characters."
+                            ).content
                         except Exception as e:
-                            print(f"❌ [DEBUG] TTS 생성 실패: {e}")
-                            st.error(f"⚠️ TTS 생성 실패: {e}")
-                            st.info("💡 첫 요청은 모델 로딩으로 시간이 오래 걸릴 수 있습니다. 다시 시도해보세요.")
+                            error_msg = str(e)
+                            if "429" in error_msg or "quota" in error_msg.lower():
+                                st.error("⚠️ Gemini API 할당량 초과")
+                                st.info("💡 잠시 후 다시 시도해주세요.")
+                            else:
+                                st.error(f"❌ LLM 요청 실패: {e}")
+                            raw_resp = None
+
+                        llm_response = (raw_resp or "").strip()
+
+                        if not llm_response:
+                            st.warning("LLM 응답이 비어 있어 TTS를 건너뜁니다.")
                             tts_embed = ""
+                        else:
+                            st.markdown(llm_response)
+                            
+                            # Bark 사용 시 처리 시간 경고
+                            if tts_model_key == "bark":
+                                with st.spinner("🐶 Bark 음성 생성 중... (100-200초 소요, 첫 실행은 더 오래 걸립니다)"):
+                                    try:
+                                        tts_embed = tts_inference(
+                                            model_key=st.session_state.tts_model_key,
+                                            text=llm_response,
+                                            speaker_path=st.session_state.speaker_path,
+                                            lang_code=lang_code,
+                                            melo_lang_code=melo_lang_code,
+                                            bark_lang_code=bark_lang_code,
+                                            bark_voice_preset=st.session_state.bark_voice_preset,
+                                            bark_speed=st.session_state.bark_speed,
+                                            f5_lang_code=f5_lang_code,
+                                            f5_ref_audio_path=st.session_state.f5_ref_audio_path if st.session_state.f5_use_reference else "my_voice1.wav",
+                                            f5_ref_text=st.session_state.f5_ref_text if st.session_state.f5_use_reference else None,
+                                        )
+                                    except Exception as e:
+                                        st.error(f"⚠️ TTS 생성 실패: {e}")
+                                        st.info("💡 Bark 서버가 실행 중인지 확인하세요 (포트 8600)")
+                                        tts_embed = ""
+                            else:
+                                current_speaker = st.session_state.speaker_path
+                                try:
+                                    tts_embed = tts_inference(
+                                        model_key=st.session_state.tts_model_key,
+                                        text=llm_response,
+                                        speaker_path=current_speaker,
+                                        lang_code=lang_code,
+                                        melo_lang_code=melo_lang_code,
+                                        bark_lang_code=bark_lang_code,
+                                        bark_voice_preset=st.session_state.bark_voice_preset,
+                                        bark_speed=st.session_state.bark_speed,
+                                        f5_lang_code=f5_lang_code,
+                                        f5_ref_audio_path=st.session_state.f5_ref_audio_path if st.session_state.f5_use_reference else "my_voice1.wav",
+                                        f5_ref_text=st.session_state.f5_ref_text if st.session_state.f5_use_reference else None,
+                                    )
+                                except Exception as e:
+                                    st.error(f"⚠️ TTS 생성 실패: {e}")
+                                    st.info("💡 첫 요청은 모델 로딩으로 시간이 오래 걸릴 수 있습니다.")
+                                    tts_embed = ""
 
-                        if tts_embed:
-                            st.markdown(tts_embed, unsafe_allow_html=True)
-                            print(f"✅ [DEBUG] TTS 오디오 표시됨")
+                            if tts_embed:
+                                st.markdown(tts_embed, unsafe_allow_html=True)
 
-            # assistant 메시지 push
-            print(f"💾 [DEBUG] assistant 메시지 저장")
             st.session_state.messages.append(
                 {
                     "role": "assistant",
@@ -721,19 +948,8 @@ if send_clicked and st.session_state.prompt_text and st.session_state.prompt_tex
                 }
             )
 
-            # 👉 방금 추가한 assistant 메시지만 autoplay 대상으로 지정
             st.session_state.autoplay_index = len(st.session_state.messages) - 1
-            print(f"✅ [DEBUG] assistant 메시지 블록 완료")
 
-    # 한 번 보낸 프롬프트는 입력창에서 비워줌
-    print(f"\n🧹 [DEBUG] Send 완료 후 정리")
-    print(f"   - prompt_text 초기화 전: '{st.session_state.prompt_text}'")
     st.session_state.prompt_text = ""
-    print(f"   - prompt_text 초기화 후: '{st.session_state.prompt_text}'")
-    
-    # ✅ STT 플래그 초기화 (새 녹음 가능하도록)
-    print(f"   - stt_processed 초기화 전: {st.session_state.stt_processed}")
     st.session_state.stt_processed = False
-    print(f"   - stt_processed 초기화 후: {st.session_state.stt_processed}")
-    print("🔄 [DEBUG] st.rerun() 호출...\n")
     st.rerun()
