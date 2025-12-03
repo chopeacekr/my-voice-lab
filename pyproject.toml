@@ -4,11 +4,11 @@
 # 
 # 개인 로컬 사용을 위한 최소 설정
 # 이것만 있어도 완전히 작동합니다!
-#
+# 
 
 [project]
 name = "my-voice-lab"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.11"
 dependencies = [
     # Web Framework
@@ -17,7 +17,7 @@ dependencies = [
     
     # LLM (Gemini)
     "langchain-google-genai>=1.0.0",
-    "google-generativeai>=0.3.0",    # ⭐ 추가 필요! (langchain 의존성)
+    "google-generativeai>=0.3.0",    # langchain 의존성
     
     # HTTP Client
     "requests>=2.32.0",
@@ -28,6 +28,15 @@ dependencies = [
     
     # STT (Speech-to-Text)
     "SpeechRecognition>=3.10.0",  # Google Speech Recognition
+    
+    # TTS (Text-to-Speech)
+    "gtts>=2.5.0",                # ⭐ Google Text-to-Speech
+    
+    # Audio Analysis & Visualization
+    "numpy>=1.24.0",              # ⭐ 수치 연산
+    "matplotlib>=3.7.0",          # ⭐ 그래프 생성
+    "librosa>=0.10.0",            # ⭐ 오디오 분석
+    "scipy>=1.11.0",              # 오디오 처리
     
     # Utilities
     "python-dotenv>=1.0.0",       # 환경 변수 관리
@@ -57,10 +66,20 @@ packages = ["api_clients"]  # ⭐ hatchling 빌드 에러 방지
 # 설치 방법
 # ==========================================
 #
-# UV 사용:
+# UV 사용 (권장):
 #   uv sync
 #
 # pip 사용:
 #   pip install -e .
+#
+# ==========================================
+# 주요 변경사항 (v0.3.0)
+# ==========================================
+#
+# ✅ gTTS 추가 - 무료 Google TTS (서버 불필요)
+# ✅ matplotlib 추가 - Waveform/Spectrogram 시각화
+# ✅ numpy 추가 - 오디오 데이터 처리
+# ✅ librosa 추가 - 고급 오디오 분석
+# ✅ scipy 추가 - 오디오 신호 처리
 #
 # ==========================================
