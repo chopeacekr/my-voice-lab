@@ -66,7 +66,7 @@ def f5_tts_http(
         response = requests.post(
             url,
             files=files,
-            timeout=300,  # F5-TTS는 처리 시간이 길 수 있음
+            timeout=1000,  # F5-TTS는 처리 시간이 길 수 있음
         )
         response.raise_for_status()
         

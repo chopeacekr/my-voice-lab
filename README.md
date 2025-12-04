@@ -62,7 +62,7 @@ Made by **Peace Cho** | 2025.12.03
 | **gTTS** | ⚡⚡⚡ 0.5초 | ⭐⭐⭐ | 무료, 인터넷만 필요 | 불필요 ✅ |
 | **MeloTTS** | ⚡⚡ 1-2초 | ⭐⭐⭐⭐ | 빠른 다국어, 실시간 | 필요 |
 | **XTTS v2** | ⚡ 5-10초 | ⭐⭐⭐⭐⭐ | Voice Cloning | 필요 |
-| **F5-TTS** | 10-20초 | ⭐⭐⭐⭐⭐ | Zero-shot, 최고 품질 | 필요 |
+| **F5-TTS** | 10-20초 | ⭐⭐⭐⭐⭐ | Zero-shot, 최고 품질(한국어는 미약) | 필요 |
 | **Bark** | 100-200초 | ⭐⭐⭐⭐⭐ | 감정 표현, 음악/효과음 | 필요 |
 
 ### 2. Multi-STT (Speech-to-Text)
@@ -85,7 +85,7 @@ Made by **Peace Cho** | 2025.12.03
 **ZIP 파일 구조:**
 ```
 audio_20251203_141728.zip
-├── audio_20251203_141728.wav          # 원본 오디오
+├── audio_20251203_141728.wav          # 원본 오디오
 ├── audio_20251203_141728_waveform.png # Waveform 그래프
 └── audio_20251203_141728_spectrogram.png # Spectrogram 그래프
 ```
@@ -100,34 +100,34 @@ audio_20251203_141728.zip
 
 ```
 my-voice-lab/
-├── web.py                          # 메인 Streamlit 앱
-├── pyproject.toml                  # 의존성 관리
-├── my_voice1.wav                   # 기본 참조 음성
+├── web.py                          # 메인 Streamlit 앱
+├── pyproject.toml                  # 의존성 관리
+├── my_voice1.wav                   # 기본 참조 음성
 │
-├── api_clients/                    # API 클라이언트
-│   ├── tts/                        # TTS 모델들
-│   │   ├── gtts_client.py          # gTTS
-│   │   ├── melotts_client.py
-│   │   ├── xtts_v2_client.py
-│   │   ├── f5_client.py
-│   │   └── bark_client.py
-│   │
-│   ├── stt/                        # STT 모델들
-│   │   ├── gSR_client.py           # Google SR
-│   │   ├── whisper_client.py
-│   │   ├── wav2vec2_client.py
-│   │   └── vosk_client.py
-│   │
-│   └── utils/                      # 유틸리티
-│       ├── audio_processor.py      # 오디오 전처리
-│       └── audio_visualizer.py     # 시각화 + ZIP
+├── api_clients/                    # API 클라이언트
+│   ├── tts/                        # TTS 모델들
+│   │   ├── gtts_client.py          # gTTS
+│   │   ├── melotts_client.py
+│   │   ├── xtts_v2_client.py
+│   │   ├── f5_client.py
+│   │   └── bark_client.py
+│   │
+│   ├── stt/                        # STT 모델들
+│   │   ├── gSR_client.py           # Google SR
+│   │   ├── whisper_client.py
+│   │   ├── wav2vec2_client.py
+│   │   └── vosk_client.py
+│   │
+│   └── utils/                      # 유틸리티
+│       ├── audio_processor.py      # 오디오 전처리
+│       └── audio_visualizer.py     # 시각화 + ZIP
 │
-├── audio/                          # 음성 파일
-│   ├── inputs/                     # STT 입력 샘플
-│   └── outputs/                    # TTS 출력 샘플
+├── audio/                          # 음성 파일
+│   ├── inputs/                     # STT 입력 샘플
+│   └── outputs/                    # TTS 출력 샘플
 │
-└── images/                         # 스크린샷, 그래프
-    └── experimental_mode.png
+└── images/                         # 스크린샷, 그래프
+    └── experimental_mode.png
 ```
 
 ### 마이크로서비스 아키텍처
@@ -141,13 +141,13 @@ my-voice-lab/
 - ✅ **유연한 확장**
 
 **서버 포트:**
-- MeloTTS: `8100`
-- XTTS v2: `8200`
+- MeloTTS: `8000`
+- XTTS v2: `8100`
 - F5-TTS: `8500`
 - Bark: `8600`
 - Whisper: `8300`
 - Wav2Vec2: `8400`
-- Vosk: `8000`
+- Vosk: `8200`
 
 ---
 
@@ -204,16 +204,16 @@ my-voice-lab/
 
 ```bash
 # 저장소 클론
-git clone https://github.com/yourusername/my-voice-lab.git
+git clone [https://github.com/yourusername/my-voice-lab.git](https://github.com/yourusername/my-voice-lab.git)
 cd my-voice-lab
 
 # uv 설치
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
 
 # 패키지 설치
 uv sync
 
-# 실행!
+# 메인 앱 실행
 uv run streamlit run web.py
 ```
 
@@ -221,7 +221,23 @@ uv run streamlit run web.py
 
 **완료!** 🎉
 
-#### 2. 시스템 의존성
+#### 2. 마이크로서비스 서버 실행 (선택 사항)
+
+메인 앱(`web.py`)에서 다른 TTS/STT 모델을 사용하려면, **각 모델의 저장소를 클론하고 서버를 별도로 실행**해야 합니다. (기본 저장소 위치: `~/myrepos/` 권장)
+
+| 모델 | GitHub 저장소 | 서버 실행 명령어 (Linux/macOS 기준) |
+|---|---|---|
+| **STT Google SR** | [chopeacekr/my-voice-lab](https://github.com/chopeacekr/my-voice-lab) | **메인 앱에 기본 탑재** |
+| **STT Whisper** | [chopeacekr/my_whisper](https://github.com/chopeacekr/my_whisper) | `(cd ~/myrepos/my_whisper && uv run python server_stt.py)` |
+| **STT Vosk** | [chopeacekr/my_vosk](https://github.com/chopeacekr/my_vosk) | `(cd ~/myrepos/my_vosk && uv run uvicorn server_stt:app --host 0.0.0.0 --port 8200)` |
+| **STT Wav2Vec2** | [chopeacekr/my_wav2vec2](https://github.com/chopeacekr/my_wav2vec2) | `(cd ~/myrepos/my_wav2vec2 && uv run python server_stt.py)` |
+| **TTS gTTS** | [chopeacekr/my-voice-lab](https://github.com/chopeacekr/my-voice-lab) | **메인 앱에 기본 탑재** |
+| **TTS MeloTTS** | [chopeacekr/my_melotts](https://github.com/chopeacekr/my_melotts) | `(cd ~/myrepos/MeloTTS && uv run uvicorn tts_serve:app --host 0.0.0.0 --port 8000)` |
+| **TTS XTTS v2** | [chopeacekr/my_xtts_v2](https://github.com/chopeacekr/my_xtts_v2) | `(cd ~/myrepos/my_xtts_v2 && uv run uvicorn server_tts:app --host 0.0.0.0 --port 8100)` |
+| **TTS Bark** | [chopeacekr/my_bart](https://github.com/chopeacekr/my_bart) | `(cd ~/myrepos/my_bark && uv run python server_tts.py)` |
+| **TTS F5-TTS** | [chopeacekr/my_f5](https://github.com/chopeacekr/my_f5) | `(cd ~/myrepos/my_f5 && uv run python server_tts.py)` |
+
+#### 3. 시스템 의존성
 
 ```bash
 # Ubuntu/Debian
@@ -240,8 +256,8 @@ brew install ffmpeg portaudio
 ```
 1. uv run streamlit run web.py
 2. Sidebar:
-   - TTS: gTTS (자동 선택)
-   - STT: Google SR (자동 선택)
+   - TTS: gTTS (자동 선택)
+   - STT: Google SR (자동 선택)
 3. GEMINI API Key 입력
 4. 🎤 녹음 → "안녕하세요" → 중지
 5. Send
@@ -287,7 +303,7 @@ brew install ffmpeg portaudio
 
 ```
 [💾 저장 & 그래프 보기] 클릭
-         ↓
+         ↓
 1. ZIP 파일 생성
 2. 다운로드 버튼 표시 (파일명 포함)
 3. Waveform 자동 표시
@@ -309,7 +325,7 @@ brew install ffmpeg portaudio
 
 ```bash
 cd api_clients/tts
-mv gTTS_client.py gtts_client.py  # 소문자로 변경
+mv gTTS_client.py gtts_client.py  # 소문자로 변경
 ```
 
 ### 2. gTTS 작동 안 함
@@ -320,8 +336,9 @@ mv gTTS_client.py gtts_client.py  # 소문자로 변경
 ### 3. 서버 연결 실패
 
 ```bash
-cd ~/myrepos/my_xtts
-uv run python server_tts.py
+# XTTS v2 예시
+cd ~/myrepos/my_xtts_v2
+uv run uvicorn server_tts:app --host 0.0.0.0 --port 8100
 ```
 
 ---
@@ -338,11 +355,14 @@ uv run python server_tts.py
 4. Waveform/Spectrogram 비교
 ```
 
-**결과:**
-- gTTS: 빠르지만 기계적
-- MeloTTS: 실시간 적합
-- XTTS v2: Voice Cloning 우수
-- F5-TTS: 최고 품질
+**결과 및 코멘트:**
+| 모델 | 코멘트 | 추천 용도 |
+|---|---|---|
+| **gTTS** | **상당히 만족.** 빠르지만 기계적 느낌 있음. | 빠른 시작, 범용 |
+| **MeloTTS** | 실시간 적합. | 실시간 대화 |
+| **XTTS v2** | 실행 시간 오래 걸림 (처리시간 약 20초). **Voice Cloning 우수.** | Voice Clone, 높은 품질 요구 |
+| **F5-TTS** | **한글은 안 좋음**, 중국어는 상당히 좋음. | 중국어, 최고 품질 (비한국어) |
+| **Bark** | 감정 표현에 강함. | 감정 표현, 음악/효과음 |
 
 ### 실험 2: STT 정확도 비교
 
@@ -353,11 +373,13 @@ uv run python server_tts.py
 3. 정확도 비교
 ```
 
-**결과:**
-- Google SR: 빠르고 정확 (85%)
-- Whisper: 최고 정확도 (90%)
-- Wav2Vec2: 한국어 준수 (82%)
-- Vosk: 빠르지만 낮음 (78%)
+**결과 및 코멘트:**
+| 모델 | 테스트 문장 예시 | 정확도 | 코멘트 |
+|---|---|---|---|
+| **Google SR** | "위성을 텍스트로 변화해주는 STT 모델 추천해줘." | 85% | **상당히 만족.** 빠르고 정확함. |
+| **Whisper** | "위성을 텍스트로 변화해주는 STT 모델 추천해줘." | 90% | **나름 괜찮음.** 최고 정확도. |
+| **Vosk** | "위성을 텍스트로 변화해주는 STT 모델 추천해줘." | 78% | 빠르지만 한글 정확도 낮음. |
+| **Wav2Vec2** | "옹섬을 럭트로 변화해 주는 에스티인 모델 추천해 어다" | 82% | 빠름, 조금 오류 있음 (STT 영어 섞이면 한글로 표기). |
 
 ---
 

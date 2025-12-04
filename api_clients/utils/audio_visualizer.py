@@ -113,14 +113,19 @@ def generate_spectrogram(audio_bytes, sr=16000, figsize=(10, 4)):
         return None
 
 
-def save_audio_with_visualizations(audio_bytes, filename_prefix="audio", sr=16000):
+def save_audio_with_visualizations(audio_bytes, filename_prefix="audio", sr=16000, metadata=None):
     """
-    오디오 파일 + Waveform + Spectrogram을 ZIP으로 압축
+    오디오 파일 + Waveform + Spectrogram + Metadata를 ZIP으로 압축
     
     Args:
         audio_bytes: 오디오 바이트 데이터
         filename_prefix: 파일명 접두사
         sr: 샘플링 레이트
+        metadata: 메타데이터 딕셔너리
+            - model_type: "STT" or "TTS" or None
+            - model_name: 모델명
+            - input_text: TTS 입력 텍스트 (TTS only)
+            - output_text: STT 출력 텍스트 (STT only)
     
     Returns:
         bytes: ZIP 파일 바이트
@@ -152,6 +157,13 @@ def save_audio_with_visualizations(audio_bytes, filename_prefix="audio", sr=1600
                 spectrogram_filename = f"{filename_prefix}_{timestamp}_spectrogram.png"
                 zipf.writestr(spectrogram_filename, spectrogram_bytes)
                 print(f"   ✅ Added: {spectrogram_filename}")
+            
+            # 4. 메타데이터 TXT 파일
+            if metadata:
+                metadata_filename = f"{filename_prefix}_{timestamp}_metadata.txt"
+                metadata_content = _generate_metadata_text(metadata, audio_filename)
+                zipf.writestr(metadata_filename, metadata_content.encode('utf-8'))
+                print(f"   ✅ Added: {metadata_filename}")
         
         zip_buffer.seek(0)
         zip_bytes = zip_buffer.read()
@@ -163,6 +175,72 @@ def save_audio_with_visualizations(audio_bytes, filename_prefix="audio", sr=1600
     except Exception as e:
         print(f"❌ ZIP 생성 실패: {e}")
         return None, None
+
+
+def _generate_metadata_text(metadata, audio_filename):
+    """
+    메타데이터 TXT 내용 생성
+    
+    Args:
+        metadata: 메타데이터 딕셔너리
+        audio_filename: 오디오 파일명
+    
+    Returns:
+        str: TXT 파일 내용
+    """
+    model_type = metadata.get("model_type", "")
+    model_name = metadata.get("model_name", "Unknown Model")
+    
+    lines = []
+    
+    if model_type == "STT":
+        # STT 메타데이터
+        lines.append("=" * 60)
+        lines.append("STT 음성 인식 결과")
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append(f"STT 모델명: {model_name}")
+        lines.append(f"STT 입력(음성): {audio_filename}")
+        lines.append("")
+        
+        output_text = metadata.get("output_text", "")
+        lines.append(f"STT 결과(텍스트): {output_text}")
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append(f"생성 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("=" * 60)
+        
+    elif model_type == "TTS":
+        # TTS 메타데이터
+        lines.append("=" * 60)
+        lines.append("TTS 음성 합성 결과")
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append(f"TTS 모델명: {model_name}")
+        lines.append("")
+        
+        input_text = metadata.get("input_text", "")
+        lines.append(f"TTS 입력(Text): {input_text}")
+        lines.append("")
+        lines.append(f"TTS 출력(음성): {audio_filename}")
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append(f"생성 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("=" * 60)
+    
+    else:
+        # 녹음된 음성 (STT/TTS 구분 없음)
+        lines.append("=" * 60)
+        lines.append("녹음된 음성")
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append(f"오디오 파일: {audio_filename}")
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append(f"생성 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("=" * 60)
+    
+    return "\n".join(lines)
 
 
 def audio_bytes_to_base64_image(image_bytes):

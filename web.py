@@ -819,9 +819,15 @@ for i, msg in enumerate(st.session_state.messages):
                 if st.button("💾 저장&그래프 보기", key=f"btn_graph_{state_key}") or already_show:
                     st.session_state.show_graphs[state_key] = True
                     with st.spinner("Creating ZIP & Generating graphs..."):
+                        metadata = {
+                            "model_type": "STT",
+                            "model_name": model_label,
+                            "output_text": msg.get("stt_text", ""),
+                        }
                         zip_bytes, zip_filename = save_audio_with_visualizations(
                             audio_bytes,
-                            filename_prefix="stt_input"
+                            filename_prefix="stt_input",
+                            metadata=metadata,
                         )
                         if zip_bytes:
                             st.download_button(
@@ -878,9 +884,15 @@ for i, msg in enumerate(st.session_state.messages):
                 if st.button("💾 저장&그래프 보기", key=f"btn_graph_{state_key}") or already_show:
                     st.session_state.show_graphs[state_key] = True
                     with st.spinner("Creating ZIP & Generating graphs..."):
+                        metadata = {
+                            "model_type": "TTS",
+                            "model_name": model_label,
+                            "input_text": tts_input_text,
+                        }
                         zip_bytes, zip_filename = save_audio_with_visualizations(
                             audio_bytes,
-                            filename_prefix="tts_output"
+                            filename_prefix="tts_output",
+                            metadata=metadata,
                         )
                         if zip_bytes:
                             st.download_button(
